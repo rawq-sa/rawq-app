@@ -15,6 +15,7 @@ workflows:
     scripts:
       - name: Install packages
         script: |
+          if [ -f capacitor_config.json ]; then mv -f capacitor_config.json capacitor.config.json; fi
           mkdir -p www
           cp offline.html www/index.html
           cp offline.html www/offline.html
@@ -53,6 +54,34 @@ workflows:
           plutil -replace UIRequiresFullScreen -bool YES "$P"
           sed -i '' 's/TARGETED_DEVICE_FAMILY = "1,2";/TARGETED_DEVICE_FAMILY = 1;/g' ios/App/App.xcodeproj/project.pbxproj
           plutil -lint "$P"
+      - name: Google and Apple sign in
+        script: |
+          set -e
+          G=$(ls GoogleService-Info*.plist | head -1)
+          cp "$G" ios/App/App/GoogleService-Info.plist
+          RC=$(/usr/libexec/PlistBuddy -c "Print :REVERSED_CLIENT_ID" ios/App/App/GoogleService-Info.plist)
+          plutil -replace CFBundleURLTypes -json "[{\"CFBundleURLSchemes\":[\"$RC\"]}]" ios/App/App/Info.plist
+          cat > ios/App/App/App.entitlements <<'J'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict><key>com.apple.developer.applesignin</key><array><string>Default</string></array></dict></plist>
+          J
+          ruby <<'R'
+          require 'xcodeproj'
+          pr = Xcodeproj::Project.open('ios/App/App.xcodeproj')
+          t = pr.targets.find { |x| x.name == 'App' }
+          g = pr.main_group.find_subpath('App', false)
+          unless g.files.any? { |f| f.path == 'GoogleService-Info.plist' }
+            t.resources_build_phase.add_file_reference(g.new_file('GoogleService-Info.plist'))
+          end
+          t.build_configurations.each { |c| c.build_settings['CODE_SIGN_ENTITLEMENTS'] = 'App/App.entitlements' }
+          pr.save
+          f = 'ios/App/Podfile'
+          s = File.read(f)
+          s.sub!(/^  capacitor_pods\n/, "  capacitor_pods\n  pod 'CapacitorFirebaseAuthentication/Google', :path => '../../node_modules/@capacitor-firebase/authentication'\n")
+          File.write(f, s)
+          R
+          grep -n "CapacitorFirebaseAuthentication" ios/App/Podfile
       - name: Sync
         script: npx cap sync ios
       - name: Signing

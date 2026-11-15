@@ -1,0 +1,24 @@
+{
+  "appId": "sa.rawq.app",
+  "appName": "Rawq",
+  "webDir": "www",
+  "backgroundColor": "#1c1530",
+  "appendUserAgent": "RawqApp",
+  "server": {
+    "url": "https://rawq-sa.github.io/",
+    "errorPath": "offline.html"
+  },
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#1c1530"
+  },
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": true,
+      "providers": [
+        "google.com",
+        "apple.com"
+      ]
+    }
+  }
+}
