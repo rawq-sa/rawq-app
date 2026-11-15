@@ -82,6 +82,7 @@ workflows:
           File.write(f, s)
           R
           grep -n "CapacitorFirebaseAuthentication" ios/App/Podfile
+          rm -rf ios/App/Podfile.lock ios/App/Pods
       - name: Sync
         script: npx cap sync ios
       - name: Signing
