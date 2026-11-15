@@ -1,0 +1,73 @@
+workflows:
+  ios-release:
+    name: Rawq iOS
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: Rawa
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: sa.rawq.app
+      node: 20
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install packages
+        script: |
+          mkdir -p www
+          cp offline.html www/index.html
+          cp offline.html www/offline.html
+          npm install
+      - name: Create iOS project
+        script: npx cap add ios
+      - name: Icon, splash and settings
+        script: |
+          set -e
+          A=ios/App/App
+          ICON=$A/Assets.xcassets/AppIcon.appiconset
+          rm -f "$ICON"/*.png
+          cp icon-1024.png "$ICON/AppIcon-1024.png"
+          cat > "$ICON/Contents.json" <<'J'
+          {"images":[{"filename":"AppIcon-1024.png","idiom":"universal","platform":"ios","size":"1024x1024"}],"info":{"author":"xcode","version":1}}
+          J
+          SP=$A/Assets.xcassets/Splash.imageset
+          rm -f "$SP"/*.png
+          cp splash-2732.png "$SP/splash-1.png"
+          cp splash-2732.png "$SP/splash-2.png"
+          cp splash-2732.png "$SP/splash-3.png"
+          cat > "$SP/Contents.json" <<'J'
+          {"images":[{"idiom":"universal","filename":"splash-1.png","scale":"1x"},{"idiom":"universal","filename":"splash-2.png","scale":"2x"},{"idiom":"universal","filename":"splash-3.png","scale":"3x"}],"info":{"author":"xcode","version":1}}
+          J
+          P=$A/Info.plist
+          plutil -replace CFBundleDisplayName -string "روق" "$P"
+          plutil -replace CFBundleDevelopmentRegion -string "ar" "$P"
+          plutil -replace ITSAppUsesNonExemptEncryption -bool NO "$P"
+          plutil -replace NSPhotoLibraryUsageDescription -string "روق يحتاج صورك عشان تختار صورة بروفايلك أو البنر." "$P"
+          plutil -replace NSPhotoLibraryAddUsageDescription -string "عشان تحفظ رسماتك وصور النتائج في جوالك." "$P"
+          plutil -replace NSCameraUsageDescription -string "روق يحتاج الكاميرا عشان تصوّر صورة لبروفايلك." "$P"
+          plutil -replace UIStatusBarStyle -string "UIStatusBarStyleLightContent" "$P"
+          plutil -replace UIViewControllerBasedStatusBarAppearance -bool NO "$P"
+          plutil -replace UISupportedInterfaceOrientations -json '["UIInterfaceOrientationPortrait"]' "$P"
+          plutil -remove "UISupportedInterfaceOrientations~ipad" "$P" || true
+          plutil -replace UIRequiresFullScreen -bool YES "$P"
+          sed -i '' 's/TARGETED_DEVICE_FAMILY = "1,2";/TARGETED_DEVICE_FAMILY = 1;/g' ios/App/App.xcodeproj/project.pbxproj
+          plutil -lint "$P"
+      - name: Sync
+        script: npx cap sync ios
+      - name: Signing
+        script: xcode-project use-profiles
+      - name: Version
+        script: |
+          cd ios/App
+          agvtool new-marketing-version 1.0
+          agvtool new-version -all $BUILD_NUMBER
+      - name: Build
+        script: xcode-project build-ipa --workspace "ios/App/App.xcworkspace" --scheme "App"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
