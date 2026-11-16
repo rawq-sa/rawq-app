@@ -19,6 +19,13 @@
         "google.com",
         "apple.com"
       ]
+    },
+    "FirebaseMessaging": {
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "alert"
+      ]
     }
   }
 }

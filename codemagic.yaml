@@ -69,7 +69,7 @@ workflows:
           cat > ios/App/App/App.entitlements <<'J'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict><key>com.apple.developer.applesignin</key><array><string>Default</string></array></dict></plist>
+          <plist version="1.0"><dict><key>com.apple.developer.applesignin</key><array><string>Default</string></array><key>aps-environment</key><string>production</string></dict></plist>
           J
           ruby <<'R'
           require 'xcodeproj'
@@ -85,7 +85,15 @@ workflows:
           s = File.read(f)
           s.sub!(/^  capacitor_pods\n/, "  capacitor_pods\n  pod 'CapacitorFirebaseAuthentication/Google', :path => '../../node_modules/@capacitor-firebase/authentication'\n")
           File.write(f, s)
+          d = 'ios/App/App/AppDelegate.swift'
+          ad = File.read(d)
+          unless ad.include?('capacitorDidRegisterForRemoteNotifications')
+            add = "\n    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {\n        NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)\n    }\n\n    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {\n        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)\n    }\n"
+            ad.insert(ad.rindex('}'), add)
+            File.write(d, ad)
+          end
           R
+          grep -n "capacitorDidRegisterForRemoteNotifications" ios/App/App/AppDelegate.swift
           grep -n "CapacitorFirebaseAuthentication" ios/App/Podfile
           rm -rf ios/App/Podfile.lock ios/App/Pods
       - name: Sync
@@ -95,7 +103,7 @@ workflows:
       - name: Version
         script: |
           cd ios/App
-          agvtool new-marketing-version 1.0
+          agvtool new-marketing-version 1.1
           agvtool new-version -all $BUILD_NUMBER
       - name: Build
         script: xcode-project build-ipa --workspace "ios/App/App.xcworkspace" --scheme "App"
