@@ -21,7 +21,12 @@ workflows:
           cp offline.html www/offline.html
           npm install
       - name: Create iOS project
-        script: npx cap add ios
+        script: |
+          npx cap add ios || echo "pods will be installed in Sync"
+          test -f ios/App/Podfile
+          sed -i '' "s/platform :ios, '[0-9.]*'/platform :ios, '15.0'/" ios/App/Podfile
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/App/App.xcodeproj/project.pbxproj
+          grep -n "platform :ios" ios/App/Podfile
       - name: Icon, splash and settings
         script: |
           set -e
